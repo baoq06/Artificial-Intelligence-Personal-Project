@@ -76,16 +76,13 @@ def paint_card(surf, rect, game, state, goal=None, border=None, border_w=1, alph
 
 # ------------------------------------------------------------------ danh sách thẻ cuộn
 class CardList:
-    CW = 64
-    CH = 64
-    GAP = 10
-
-    def __init__(self, rect, accent):
+    def __init__(self, rect, accent, cw=64, ch=64, gap=10, top=50):
         self.rect = pygame.Rect(rect)
         self.accent = accent
+        self.CW, self.CH, self.GAP = cw, ch, gap
         self.row = 0.0
         self.target = 0
-        self.area = pygame.Rect(self.rect.x + 16, self.rect.y + 50, self.rect.w - 32, self.rect.h - 62)
+        self.area = pygame.Rect(self.rect.x + 16, self.rect.y + top, self.rect.w - 32, self.rect.h - top - 12)
 
     @property
     def cols(self):
@@ -97,7 +94,10 @@ class CardList:
 
     def scroll(self, dy, total):
         total_rows = -(-total // self.cols)
-        self.target = int(clamp(self.target + dy, 0, max(0, total_rows - self.rows_visible)))
+        new = int(clamp(self.target + dy, 0, max(0, total_rows - self.rows_visible)))
+        changed = new != self.target
+        self.target = new
+        return changed
 
     def reset_scroll(self):
         self.target = 0

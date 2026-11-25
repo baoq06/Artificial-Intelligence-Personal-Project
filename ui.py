@@ -145,6 +145,12 @@ def draw_icon(surf, name, center, size, color):
     elif name == "home":
         pygame.draw.polygon(surf, color, [(cx - h, cy), (cx, cy - h), (cx + h, cy)], 2)
         pygame.draw.rect(surf, color, (cx - h * .6, cy, h * 1.2, h), 2)
+    elif name == "down":
+        pygame.draw.line(surf, color, (cx, cy - h), (cx, cy + h * .4), 2)
+        pygame.draw.polygon(surf, color, [(cx - h * .7, cy + h * .1), (cx + h * .7, cy + h * .1), (cx, cy + h)])
+    elif name == "up":
+        pygame.draw.line(surf, color, (cx, cy + h), (cx, cy - h * .4), 2)
+        pygame.draw.polygon(surf, color, [(cx - h * .7, cy - h * .1), (cx + h * .7, cy - h * .1), (cx, cy - h)])
     elif name == "check":
         pygame.draw.lines(surf, color, False, [(cx - h * .7, cy), (cx - h * .15, cy + h * .6), (cx + h * .8, cy - h * .6)], 3)
     elif name == "warn":
