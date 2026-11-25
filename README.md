@@ -43,7 +43,7 @@
 
 ## Ảnh chụp ứng dụng
 
-| 8-Puzzle · BFS đang chạy | 8-Puzzle · DFS (đường đi dài, cuộn được) |
+| 8-Puzzle · BFS đang chạy từng dòng (giữa vòng lặp 2) | 8-Puzzle · DFS (đường đi dài, cuộn được) |
 |---|---|
 | ![BFS đang chạy](screenshots/01_puzzle_bfs_running.png) | ![DFS](screenshots/03_puzzle_dfs.png) |
 
