@@ -30,6 +30,9 @@ ALGOS = [("BFS", "BFS"), ("DFS", "DFS")]
 STUDENT_NAME = "Mai Quốc Bảo"
 STUDENT_ID = "24110080"
 
+# tốc độ Auto (số bước trên giây)
+MIN_SPS, MAX_SPS, DEFAULT_SPS = 1, 128, 5
+
 
 def load_logo():
     for p in (os.path.join(HERE, "ute_logo.png"), os.path.join(HERE, "..", "ute_logo.png")):
@@ -62,7 +65,8 @@ class App:
         self.btn_next = Button((x + 188, by, 100, 42), "Next", "next", "primary")
         self.btn_auto = Button((x + 296, by, 88, 42), "Auto", "play", "success")
         self.btn_skip = Button((x + 392, by, 96, 42), "Kết quả", "skip")
-        self.slider = Slider((BOARD_RECT.right - 130, by + 26, 114, 10), 0.45)
+        self.slider = Slider((BOARD_RECT.right - 130, by + 26, 114, 10),
+                             (DEFAULT_SPS - MIN_SPS) / (MAX_SPS - MIN_SPS))
         self.btn_replay = Button((0, 0, 200, 30), "Phát lại đường đi", "play", "secondary")
         self.controls = [self.btn_reset, self.btn_prev, self.btn_next, self.btn_auto, self.btn_skip, self.btn_replay]
 
@@ -90,6 +94,10 @@ class App:
     @property
     def blocked(self):
         return self.inp.warning() is not None
+
+    @property
+    def steps_per_sec(self):
+        return round(MIN_SPS + self.slider.value * (MAX_SPS - MIN_SPS))
 
     def goal_for_view(self):
         return self.inp.goal_state()
@@ -270,7 +278,7 @@ class App:
         self.inp.update(dt, mouse, down)
 
         if self.auto:
-            interval = 1.2 * (0.0167 ** self.slider.value)
+            interval = 1.0 / self.steps_per_sec
             self.auto_acc += dt
             n = 0
             while self.auto_acc >= interval and n < 8:
@@ -415,7 +423,8 @@ class App:
                          (BOARD_RECT.right - 16, BOARD_RECT.bottom - 68))
         for b in self.controls:
             b.draw(s)
-        draw_text(s, "Tốc độ Auto", (self.slider.rect.x, self.slider.rect.y - 22), 11, COL["muted"], True)
+        draw_text(s, f"{self.steps_per_sec} bước/giây", (self.slider.rect.x, self.slider.rect.y - 22), 11,
+                  COL["muted"], True)
         self.slider.draw(s)
 
     def draw_node_panel(self, s):

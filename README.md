@@ -9,7 +9,7 @@
 ## Tính năng
 
 - **Chọn trò chơi và thuật toán** bằng dropdown: 8-Puzzle / Vacuum Robot, BFS / DFS.
-- **Điều khiển từng bước**: `Next` (bước tiếp), `Prev` (lùi lại), `Auto` (tự chạy, chỉnh được tốc độ), `Kết quả` (chạy nhanh đến khi tìm thấy goal), `Reset`.
+- **Điều khiển từng bước**: `Next` (bước tiếp), `Prev` (lùi lại), `Auto` (tự chạy, thanh trượt chỉnh 1–128 bước/giây), `Kết quả` (chạy nhanh đến khi tìm thấy goal), `Reset`.
 - **Ba bảng trạng thái**:
   - **Node**: node vừa được lấy ra khỏi Frontier.
   - **Frontier**: Queue (FIFO) với BFS, Stack (LIFO) với DFS; có nhãn `HEAD` / `TOP` cho phần tử sắp được lấy ra.
