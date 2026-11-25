@@ -20,7 +20,7 @@
   - Dòng đang chạy luôn được cuộn vào tầm nhìn; có thể tự cuộn bằng con lăn.
 - **Bảng Đường đi**: sau khi tìm thấy goal, hiện chuỗi hành động (`Down → Right`) và từng trạng thái từ *Bước 0* đến *GOAL*, cuộn được khi đường đi dài. Đường đi cũng được in ra terminal giống output của notebook (`Step 0:`, `Step 1:` …).
 - **Ba bảng trạng thái**:
-  - **Node**: node vừa được lấy ra khỏi Frontier.
+  - **Node**: node vừa được lấy ra khỏi Frontier, kèm một câu giải thích dòng code vừa chạy.
   - **Frontier**: Queue (FIFO) với BFS, Stack (LIFO) với DFS; có nhãn `HEAD` / `TOP` cho phần tử sắp được lấy ra.
   - **Empty**: các node đã thăm (explored), node mới nhất ở đầu.
 - **Animation mượt**: ô số trượt, robot di chuyển giữa hai phòng, bụi mờ dần và có hiệu ứng hút. Thẻ mới sinh hiện dần kèm viền nổi bật.
@@ -37,7 +37,7 @@
 
 | Hàng | Bên trái | Bên phải |
 |---|---|---|
-| 1 | Bàn chơi + nút điều khiển | Code (highlight dòng đang chạy) |
+| 1 | Bàn chơi + nút điều khiển + tốc độ Auto | Code (highlight dòng đang chạy) |
 | 2 | Node · Frontier · Empty | |
 | 3 | Đầu vào | Đường đi |
 
@@ -91,7 +91,7 @@ Ví dụ với 8-Puzzle `((1,2,3),(4,0,6),(7,5,8))` → `((1,2,3),(4,5,6),(7,8,0
 
 ```
 ├── main.py         # vòng lặp pygame, bố cục, xử lý sự kiện
-├── algorithms.py   # BFS / DFS dạng từng bước (tiến/lùi), Problem, Node
+├── algorithms.py   # BFS / DFS chạy từng dòng / từng vòng lặp (tiến/lùi), Problem, Node
 ├── problems.py     # định nghĩa 8-Puzzle và Vacuum Robot
 ├── inputs.py       # bảng tùy chỉnh đầu vào
 ├── codeview.py     # bảng Code: nội dung code theo trò, tô màu cú pháp, highlight dòng đang chạy
@@ -105,10 +105,10 @@ Ví dụ với 8-Puzzle `((1,2,3),(4,0,6),(7,5,8))` → `((1,2,3),(4,5,6),(7,8,0
 
 Ở đầu `main.py` có hai danh sách `GAMES` và `ALGOS`; thêm một dòng vào đây là dropdown có thêm mục. Để mục mới chạy được còn cần:
 
-- **Thuật toán mới**: thêm xử lý trong `SearchMachine` (`algorithms.py`), và code hiển thị + cách map từng bước sang dòng code trong `codeview.py`.
+- **Thuật toán mới**: thêm xử lý trong `SearchMachine` (`algorithms.py`), và code hiển thị + cách map từng bước sang dòng code trong `codeview.py`. Dòng code nào làm thay đổi Frontier/Empty thì khai báo trong `_TAG_OP` (`algorithms.py`) để Next/Prev theo dòng cập nhật đúng các bảng.
 - **Trò chơi mới**: thêm `Problem` (`problems.py`), cách vẽ trạng thái (`views.py`) và bảng nhập đầu vào (`inputs.py`).
 
 ## Lưu ý
 
-- DFS trên 8-Puzzle thường cho đường đi rất dài (có thể hàng nghìn nước). Dùng *Auto* tốc độ cao hoặc nút *Kết quả* để xem nhanh.
+- DFS trên 8-Puzzle thường cho đường đi rất dài (có thể hàng nghìn nước). *Auto* chạy theo từng dòng code nên khá lâu với bài dài; dùng *Node tiếp* hoặc nút *Kết quả* để xem nhanh.
 - BFS với đề rất khó (ví dụ lời giải 31 nước) cần khoảng 10 giây để chạy hết bằng *Kết quả*; app vẫn phản hồi và hiện số bước đang chạy trong lúc đó.
