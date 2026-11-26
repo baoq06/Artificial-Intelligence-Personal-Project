@@ -91,7 +91,13 @@ Ví dụ với 8-Puzzle `((1,2,3),(4,0,6),(7,5,8))` → `((1,2,3),(4,5,6),(7,8,0
 
 ```
 ├── main.py         # vòng lặp pygame, bố cục, xử lý sự kiện
-├── algorithms.py   # BFS / DFS chạy từng dòng / từng vòng lặp (tiến/lùi), Problem, Node
+├── algorithms/     # thuật toán tìm kiếm, mỗi thuật toán một file
+│   ├── core.py     #   Problem, Node, Step, hàm tiện ích
+│   ├── base.py     #   lớp cơ sở SearchAlgorithm
+│   ├── bfs.py      #   BFS (Queue, kiểm tra goal khi sinh con)
+│   ├── dfs.py      #   DFS (Stack, kiểm tra goal khi lấy ra)
+│   ├── registry.py #   tên thuật toán -> lớp
+│   └── machine.py  #   SearchMachine: chạy / lùi từng dòng, từng vòng lặp
 ├── problems.py     # định nghĩa 8-Puzzle và Vacuum Robot
 ├── inputs.py       # bảng tùy chỉnh đầu vào
 ├── codeview.py     # bảng Code: nội dung code theo trò, tô màu cú pháp, highlight dòng đang chạy
@@ -105,7 +111,7 @@ Ví dụ với 8-Puzzle `((1,2,3),(4,0,6),(7,5,8))` → `((1,2,3),(4,5,6),(7,8,0
 
 Ở đầu `main.py` có hai danh sách `GAMES` và `ALGOS`; thêm một dòng vào đây là dropdown có thêm mục. Để mục mới chạy được còn cần:
 
-- **Thuật toán mới**: thêm xử lý trong `SearchMachine` (`algorithms.py`), và code hiển thị + cách map từng bước sang dòng code trong `codeview.py`. Dòng code nào làm thay đổi Frontier/Empty thì khai báo trong `_TAG_OP` (`algorithms.py`) để Next/Prev theo dòng cập nhật đúng các bảng.
+- **Thuật toán mới**: tạo file mới trong `algorithms/` (lớp con của `SearchAlgorithm`, xem `bfs.py` / `dfs.py`), đăng ký trong `algorithms/registry.py`, và code hiển thị + cách map từng bước sang dòng code trong `codeview.py`. Dòng code nào làm thay đổi Frontier/Empty thì khai báo trong `_TAG_OP` (`algorithms/machine.py`) để Next/Prev theo dòng cập nhật đúng các bảng.
 - **Trò chơi mới**: thêm `Problem` (`problems.py`), cách vẽ trạng thái (`views.py`) và bảng nhập đầu vào (`inputs.py`).
 
 ## Lưu ý
