@@ -1,6 +1,6 @@
-# Search Visualizer — BFS & DFS trên 8-Puzzle và Vacuum Robot
+# Search Visualizer — BFS, DFS & UCS trên 8-Puzzle và Vacuum Robot
 
-Ứng dụng **Python + Pygame** minh họa từng bước hai thuật toán tìm kiếm **BFS** và **DFS** trên hai bài toán **8-Puzzle** và **Vacuum Robot**. Mỗi lần bấm *Next*, thuật toán chạy đúng **một dòng code**: bảng **Code** highlight dòng đó, các bảng Node, Frontier (Queue/Stack), Empty cập nhật ngay theo dòng vừa chạy (`dequeue`, `explored.add`, `enqueue`…). Nút *Node tiếp* chạy hết cả vòng lặp để xét xong một node. Khi tìm thấy goal, bảng **Đường đi** hiện toàn bộ đường đi từ đầu đến goal.
+Ứng dụng **Python + Pygame** minh họa từng bước ba thuật toán tìm kiếm **BFS**, **DFS** và **UCS** (Uniform Cost Search) trên hai bài toán **8-Puzzle** và **Vacuum Robot**. Mỗi lần bấm *Next*, thuật toán chạy đúng **một dòng code**: bảng **Code** highlight dòng đó, các bảng Node, Frontier (Queue/Stack), Empty cập nhật ngay theo dòng vừa chạy (`dequeue`, `explored.add`, `enqueue`…). Nút *Node tiếp* chạy hết cả vòng lặp để xét xong một node. Khi tìm thấy goal, bảng **Đường đi** hiện toàn bộ đường đi từ đầu đến goal.
 
 > **Sinh viên:** Mai Quốc Bảo · **MSSV:** 24110080 · HCM-UTE
 
@@ -8,20 +8,20 @@
 
 ## Tính năng
 
-- **Chọn trò chơi và thuật toán** bằng dropdown: 8-Puzzle / Vacuum Robot, BFS / DFS.
+- **Chọn trò chơi và thuật toán** bằng dropdown: 8-Puzzle / Vacuum Robot, BFS / DFS / UCS.
 - **Điều khiển từng bước**:
   - `Next` / `Prev`: chạy tới / lùi lại **1 dòng code**.
   - `Node tiếp`: chạy hết vòng lặp hiện tại (xét xong 1 node), highlight lướt qua các dòng còn lại.
   - `Auto`: tự bấm Next liên tục, thanh trượt chỉnh 1–240 dòng/giây.
   - `Kết quả`: chạy nhanh đến khi tìm thấy goal, bấm lần nữa để dừng.
   - `Reset`.
-- **Bảng Code**: hiện code BFS/DFS giống notebook, kèm phần khởi tạo `Problem(...)` tương ứng với trò đang chọn (`actions_puzzle`/`result_puzzle` hoặc `actions_vacuum`/`result_vacuum`, trạng thái đầu và goal theo đầu vào hiện tại).
+- **Bảng Code**: hiện code BFS/DFS/UCS giống notebook, kèm phần khởi tạo `Problem(...)` tương ứng với trò đang chọn (`actions_puzzle`/`result_puzzle` hoặc `actions_vacuum`/`result_vacuum`, trạng thái đầu và goal theo đầu vào hiện tại).
   - Mỗi lần *Next*, highlight chuyển sang dòng kế tiếp của vòng lặp (`while` → `pop`/`dequeue` → `for` → `if` → `push`/`enqueue` …), kèm giá trị như `action = 'Up'`, `True`/`False`. Bảng Node giải thích dòng vừa chạy.
   - Dòng đang chạy luôn được cuộn vào tầm nhìn; có thể tự cuộn bằng con lăn.
 - **Bảng Đường đi**: sau khi tìm thấy goal, hiện chuỗi hành động (`Down → Right`) và từng trạng thái từ *Bước 0* đến *GOAL*, cuộn được khi đường đi dài. Đường đi cũng được in ra terminal giống output của notebook (`Step 0:`, `Step 1:` …).
 - **Ba bảng trạng thái**:
   - **Node**: node vừa được lấy ra khỏi Frontier, kèm một câu giải thích dòng code vừa chạy.
-  - **Frontier**: Queue (FIFO) với BFS, Stack (LIFO) với DFS; có nhãn `HEAD` / `TOP` cho phần tử sắp được lấy ra.
+  - **Frontier**: Queue (FIFO) với BFS, Stack (LIFO) với DFS, Priority Queue với UCS; có nhãn `HEAD` / `TOP` / `MIN` cho phần tử sắp được lấy ra.
   - **Empty**: các node đã thăm (explored), node mới nhất ở đầu.
 - **Animation mượt**: ô số trượt, robot di chuyển giữa hai phòng, bụi mờ dần và có hiệu ứng hút. Thẻ mới sinh hiện dần kèm viền nổi bật.
 - **Phát lại đường đi** từ đầu đến goal sau khi tìm thấy lời giải.
@@ -51,6 +51,10 @@
 |---|---|
 | ![Vacuum Robot](screenshots/04_vacuum_dfs.png) | ![Dropdown](screenshots/05_dropdown.png) |
 
+| 8-Puzzle · UCS (chi phí g trên từng thẻ) | Vacuum Robot · UCS |
+|---|---|
+| ![UCS 8-Puzzle](screenshots/06_puzzle_ucs.png) | ![UCS Vacuum](screenshots/07_vacuum_ucs.png) |
+
 ## Cài đặt và chạy
 
 Yêu cầu: Python 3.9+ (đã thử với 3.11) và `pygame`.
@@ -72,16 +76,22 @@ python main.py
 | `Esc` | Đóng dropdown / bỏ chọn ô |
 | `↑` `↓` / `PgUp` `PgDn` / `Home` `End` | Cuộn trang |
 
-## Cách hoạt động của hai thuật toán
+## Cách hoạt động của ba thuật toán
 
 Logic bám theo hai notebook bài tập (`Problem`, `Node`, `child_node`, `solution`), chỉ khác là thuật toán được tách thành từng dòng để có thể bấm *Next* / *Prev* (mỗi dòng có thể hoàn tác).
 
-| | BFS | DFS |
-|---|---|---|
-| Frontier | Queue (FIFO) | Stack (LIFO) |
-| Kiểm tra goal | Khi **sinh node con** | Khi **lấy node ra** |
-| Bỏ qua node con | Đã ở Empty hoặc đã nằm trong Frontier | Chỉ cần đã ở Empty |
-| Đường đi | Ngắn nhất | Có thể rất dài, không tối ưu |
+| | BFS | DFS | UCS |
+|---|---|---|---|
+| Frontier | Queue (FIFO) | Stack (LIFO) | Priority Queue theo g(n) |
+| Kiểm tra goal | Khi **sinh node con** | Khi **lấy node ra** | Khi **lấy node ra** |
+| Bỏ qua node con | Đã ở Empty hoặc đã nằm trong Frontier | Chỉ cần đã ở Empty | Đã ở Empty; nếu đã trong Frontier mà đường mới **rẻ hơn** thì thay thế |
+| Đường đi | Ít bước nhất | Có thể rất dài, không tối ưu | **Chi phí thấp nhất** |
+
+### Chi phí hành động (dùng cho UCS)
+
+- **8-Puzzle**: `Up` / `Down` tốn **1**, `Left` / `Right` tốn **2** (`step_cost_puzzle` trong `problems.py`).
+- **Vacuum Robot**: mọi hành động (`Suck`, `Left`, `Right`) tốn **1** — chi phí chuẩn của bài toán (`step_cost_vacuum`). Muốn đổi chỉ cần sửa hàm này.
+- Thẻ trong Frontier / Empty / Đường đi hiển thị `g=…` (tổng chi phí từ trạng thái đầu); bảng Node và Đường đi hiện chi phí từng bước và tổng chi phí.
 
 Ví dụ với 8-Puzzle `((1,2,3),(4,0,6),(7,5,8))` → `((1,2,3),(4,5,6),(7,8,0))`: BFS tìm ra đường đi 2 nước (`Down`, `Right`) sau 3 vòng lặp, còn DFS đi qua hàng trăm nước vì đào sâu theo một nhánh.
 
@@ -96,6 +106,7 @@ Ví dụ với 8-Puzzle `((1,2,3),(4,0,6),(7,5,8))` → `((1,2,3),(4,5,6),(7,8,0
 │   ├── base.py     #   lớp cơ sở SearchAlgorithm
 │   ├── bfs.py      #   BFS (Queue, kiểm tra goal khi sinh con)
 │   ├── dfs.py      #   DFS (Stack, kiểm tra goal khi lấy ra)
+│   ├── ucs.py      #   UCS (Priority Queue theo g, thay node khi tìm được đường rẻ hơn)
 │   ├── registry.py #   tên thuật toán -> lớp
 │   └── machine.py  #   SearchMachine: chạy / lùi từng dòng, từng vòng lặp
 ├── problems.py     # định nghĩa 8-Puzzle và Vacuum Robot
@@ -111,7 +122,7 @@ Ví dụ với 8-Puzzle `((1,2,3),(4,0,6),(7,5,8))` → `((1,2,3),(4,5,6),(7,8,0
 
 Ở đầu `main.py` có hai danh sách `GAMES` và `ALGOS`; thêm một dòng vào đây là dropdown có thêm mục. Để mục mới chạy được còn cần:
 
-- **Thuật toán mới**: tạo file mới trong `algorithms/` (lớp con của `SearchAlgorithm`, xem `bfs.py` / `dfs.py`), đăng ký trong `algorithms/registry.py`, và code hiển thị + cách map từng bước sang dòng code trong `codeview.py`. Dòng code nào làm thay đổi Frontier/Empty thì khai báo trong `_TAG_OP` (`algorithms/machine.py`) để Next/Prev theo dòng cập nhật đúng các bảng.
+- **Thuật toán mới**: tạo file mới trong `algorithms/` (lớp con của `SearchAlgorithm`, xem `bfs.py` / `dfs.py` / `ucs.py`), đăng ký trong `algorithms/registry.py`, và code hiển thị + cách map từng bước sang dòng code trong `codeview.py`. Dòng code nào làm thay đổi Frontier/Empty thì khai báo trong `_TAG_OP` (`algorithms/machine.py`) để Next/Prev theo dòng cập nhật đúng các bảng.
 - **Trò chơi mới**: thêm `Problem` (`problems.py`), cách vẽ trạng thái (`views.py`) và bảng nhập đầu vào (`inputs.py`).
 
 ## Lưu ý

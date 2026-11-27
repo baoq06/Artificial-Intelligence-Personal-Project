@@ -1,4 +1,4 @@
-"""Định nghĩa 2 bài toán: 8-puzzle và Vacuum robot (lấy từ notebook)."""
+"""Định nghĩa 2 bài toán: 8-puzzle và Vacuum robot (lấy từ notebook), kèm chi phí hành động cho UCS."""
 import random
 
 from algorithms import Problem
@@ -43,8 +43,13 @@ def result_puzzle(state, action):
     return tuple(tuple(row) for row in board)
 
 
+def step_cost_puzzle(state, action):
+    """Đi lên / xuống tốn 1, sang trái / phải tốn 2."""
+    return 1 if action in ("Up", "Down") else 2
+
+
 def make_puzzle_problem(initial, goal):
-    return Problem(initial, goal, actions_puzzle, result_puzzle)
+    return Problem(initial, goal, actions_puzzle, result_puzzle, step_cost_puzzle)
 
 
 def _inversions(state):
@@ -94,9 +99,14 @@ def result_vacuum(state, action):
     return state
 
 
+def step_cost_vacuum(state, action):
+    """Chi phí điển hình của Vacuum world (Russell & Norvig): mỗi hành động (Suck / Left / Right) tốn 1."""
+    return 1
+
+
 def make_vacuum_problem(initial, goal_rooms):
     goal = lambda s: s[1] == goal_rooms
-    return Problem(initial, goal, actions_vacuum, result_vacuum)
+    return Problem(initial, goal, actions_vacuum, result_vacuum, step_cost_vacuum)
 
 
 def vacuum_reachable(initial, goal_rooms):

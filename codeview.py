@@ -1,4 +1,4 @@
-"""Bảng "Code": hiển thị code BFS/DFS (theo notebook) cho từng trò, tô màu cú pháp
+"""Bảng "Code": hiển thị code BFS/DFS/UCS (theo notebook) cho từng trò, tô màu cú pháp
 và highlight dòng đang chạy. Mỗi lần Next, highlight chạy lần lượt qua các dòng của vòng lặp."""
 import re
 
@@ -19,7 +19,7 @@ SYN = dict(
     text=(214, 219, 232),
     op=(171, 178, 196),
 )
-KEYWORDS = {"def", "if", "return", "while", "for", "in", "not", "and", "lambda", "is", "None", "True", "False"}
+KEYWORDS = {"def", "if", "elif", "return", "while", "for", "in", "not", "and", "lambda", "is", "None", "True", "False"}
 BUILTINS = {"set", "all", "len"}
 TOKEN_RE = re.compile(r'(#.*$)|("[^"]*"|\'[^\']*\')|(\b\d+\b)|([A-Za-z_]\w*)|(\s+)|(.)')
 
@@ -67,6 +67,31 @@ def code_lines(algo, game, initial, goal):
             ("", None),
             ("    return None", "return_none"),
         ]
+    elif algo == "UCS":
+        body = [
+            ("def UCS(problem):", "def"),
+            ("    node = Node(problem.initial_state)", "init_node"),
+            ("    frontier = PriorityQueue()   # g(n) nhỏ nhất ra trước", "frontier_init"),
+            ("    push(frontier, node)", "push_root"),
+            ("    explored = set()", "explored_init"),
+            ("", None),
+            ("    while not is_empty(frontier):", "while"),
+            ("        node = pop_min(frontier)", "pop"),
+            ("        if is_goal(problem, node.state):", "goal_pop"),
+            ("            return solution(node)", "return_pop"),
+            ("", None),
+            ("        explored.add(node.state)", "explored_add"),
+            ("        for action in problem.actions(node.state):", "for"),
+            ("            child = child_node(problem, node, action)", "child"),
+            ("            if child.state not in explored and \\", "if_new"),
+            ("               child.state not in frontier:", "if_new"),
+            ("                push(frontier, child)", "push_child"),
+            ("            elif child.state in frontier and \\", "if_better"),
+            ("                 child.cost < frontier[child.state].cost:", "if_better"),
+            ("                replace(frontier, child)", "replace_child"),
+            ("", None),
+            ("    return None", "return_none"),
+        ]
     else:
         body = [
             ("def DFS(problem):", "def"),
@@ -91,22 +116,26 @@ def code_lines(algo, game, initial, goal):
             ("", None),
             ("    return None", "return_none"),
         ]
+    ucs = algo == "UCS"
     if game == "puzzle":
-        setup = [
-            ("# ---------------- 8-puzzle ----------------", None),
-            (f"initial = {_q(initial)}", "setup_init"),
-            (f"goal = {_q(goal)}", "setup_goal"),
-            ("problem = Problem(initial, goal, actions_puzzle, result_puzzle)", "setup_problem"),
-            (f"path = {algo}(problem)", "call"),
-        ]
+        setup = [("# ---------------- 8-puzzle ----------------", None),
+                 (f"initial = {_q(initial)}", "setup_init"),
+                 (f"goal = {_q(goal)}", "setup_goal")]
+        if ucs:
+            setup += [("def step_cost_puzzle(state, action):", "setup_cost"),
+                      ('    return 1 if action in ("Up", "Down") else 2', "setup_cost")]
+        setup.append(("problem = Problem(initial, goal, actions_puzzle, result_puzzle"
+                      + (", step_cost_puzzle)" if ucs else ")"), "setup_problem"))
     else:
-        setup = [
-            ("# -------------- vacuum robot ---------------", None),
-            (f"initial = {_q(initial)}", "setup_init"),
-            (f"goal = lambda s: s[1] == {_q(goal)}", "setup_goal"),
-            ("problem = Problem(initial, goal, actions_vacuum, result_vacuum)", "setup_problem"),
-            (f"path = {algo}(problem)", "call"),
-        ]
+        setup = [("# -------------- vacuum robot ---------------", None),
+                 (f"initial = {_q(initial)}", "setup_init"),
+                 (f"goal = lambda s: s[1] == {_q(goal)}", "setup_goal")]
+        if ucs:
+            setup += [("def step_cost_vacuum(state, action):", "setup_cost"),
+                      ("    return 1          # Suck / Left / Right đều tốn 1", "setup_cost")]
+        setup.append(("problem = Problem(initial, goal, actions_vacuum, result_vacuum"
+                      + (", step_cost_vacuum)" if ucs else ")"), "setup_problem"))
+    setup.append((f"path = {algo}(problem)", "call"))
     return body + [("", None)] + setup
 
 
@@ -115,9 +144,13 @@ def _node_label(node):
     return "root" if node.action is None else node.action
 
 
-def init_trace(root_is_goal):
-    t = [("setup_init", ""), ("setup_goal", ""), ("setup_problem", ""), ("call", ""),
-         ("def", ""), ("init_node", "node = root")]
+def init_trace(algo, root_is_goal):
+    t = [("setup_init", ""), ("setup_goal", "")]
+    if algo == "UCS":
+        t.append(("setup_cost", ""))
+    t += [("setup_problem", ""), ("call", ""), ("def", ""), ("init_node", "node = root")]
+    if algo == "UCS":       # UCS không kiểm tra goal ở root, mà kiểm tra khi lấy node ra
+        return t + [("frontier_init", ""), ("push_root", "push root"), ("explored_init", "")]
     if root_is_goal:
         t += [("init_goal", "True"), ("init_return", "")]
     else:
@@ -127,7 +160,25 @@ def init_trace(root_is_goal):
 
 def step_trace(algo, step, exhausted_after):
     t = [("while", "True"), ("pop", f"node = {_node_label(step.popped)}")]
-    if algo == "BFS":
+    if algo == "UCS":
+        t[1] = ("pop", f"node = {_node_label(step.popped)} · g={step.popped.cost}")
+        if step.goal is not None:
+            return t + [("goal_pop", "True"), ("return_pop", "")]
+        t += [("goal_pop", "False"), ("explored_add", "")]
+        j = 0                                    # chỉ số node con trong step.kids / step.olds
+        for (action, outcome), cost in zip(step.events, step.costs):
+            t += [("for", f"action = '{action}'"), ("child", f"g={cost}")]
+            if outcome == "push":
+                t += [("if_new", "True"), ("push_child", "")]
+                j += 1
+                continue
+            t.append(("if_new", "False"))
+            if outcome == "replace":
+                t += [("if_better", f"True · {cost} < {step.olds[j].cost}"), ("replace_child", "")]
+                j += 1
+            else:
+                t.append(("if_better", "False"))
+    elif algo == "BFS":
         t.append(("explored_add", ""))
         for action, outcome in step.events:
             t.append(("for", f"action = '{action}'"))
@@ -165,24 +216,33 @@ def explain(algo, trace, i):
         if tg == "for":
             action = nt.split("=", 1)[-1].strip()
             break
-    fr = "Queue" if algo == "BFS" else "Stack"
+    fr = {"BFS": "Queue", "DFS": "Stack"}.get(algo, "Priority Queue")
     if tag == "while":
         return (f"{fr} chưa rỗng → vào vòng lặp." if note == "True"
                 else f"{fr} rỗng → thoát vòng lặp.")
     if tag == "pop":
+        if algo == "UCS":
+            return f"Lấy node có g(n) nhỏ nhất ({note.rsplit('g=', 1)[-1]}) ra khỏi Frontier."
         where = "đầu Queue" if algo == "BFS" else "đỉnh Stack"
         return f"Lấy node ở {where} ra khỏi Frontier."
     if tag == "goal_pop":
         return "Node này là goal!" if note == "True" else "Node này chưa phải goal."
     if tag == "return_pop":
+        if algo == "UCS":
+            return "Trả về đường đi tới node goal → dừng (UCS kiểm tra goal khi lấy ra nên đường đi rẻ nhất)."
         return "Trả về đường đi tới node goal → dừng (DFS kiểm tra goal khi lấy ra)."
     if tag == "explored_add":
         return "Đánh dấu node đã thăm: thêm vào Empty (explored)."
     if tag == "for":
         return f"Xét hành động {action}."
     if tag == "child":
+        if algo == "UCS":
+            return f"Sinh node con bằng hành động {action}, g(con) = {note.replace('g=', '')}."
         return f"Sinh node con bằng hành động {action}."
     if tag == "if_new":
+        if algo == "UCS":
+            return ("Node con chưa thăm và chưa có trong Frontier." if note == "True"
+                    else "Node con đã thăm hoặc đã có trong Frontier → xét tiếp elif.")
         if note == "True":
             return "Node con chưa thăm" + (" và chưa có trong Frontier." if algo == "BFS" else ".")
         return "Node con đã thăm" + (" hoặc đã có trong Frontier" if algo == "BFS" else "") + " → bỏ qua."
@@ -190,7 +250,16 @@ def explain(algo, trace, i):
         return "Node con là goal!" if note == "True" else "Node con chưa phải goal."
     if tag == "return_child":
         return "Trả về đường đi tới node con goal → dừng (BFS kiểm tra goal khi sinh con)."
+    if tag == "if_better":
+        if note == "False":
+            return "Node con đã thăm, hoặc đã có trong Frontier với chi phí không lớn hơn → bỏ qua."
+        new, old = note.split("·")[1].split("<")
+        return f"Node con đã có trong Frontier nhưng đường mới rẻ hơn ({new.strip()} < {old.strip()}) → thay thế."
+    if tag == "replace_child":
+        return f"Thay node cũ trong Frontier bằng node con ({action}) có chi phí thấp hơn."
     if tag == "push_child":
+        if algo == "UCS":
+            return f"Đưa node con ({action}) vào Frontier, tự xếp theo g(n)."
         return f"Đưa node con ({action}) vào Frontier."
     if tag == "return_none":
         return "Không còn node nào để xét → không có lời giải."

@@ -1,4 +1,4 @@
-"""Search Visualizer: BFS / DFS trên 8-puzzle và Vacuum robot (pygame).
+"""Search Visualizer: BFS / DFS / UCS trên 8-puzzle và Vacuum robot (pygame).
 
 Chạy:  python main.py
 Phím tắt:  →  Next   ←  Prev   Space  Auto   R  Reset   ↑ ↓ / PgUp PgDn  cuộn trang
@@ -9,7 +9,7 @@ import time
 
 import pygame
 
-from algorithms import SearchMachine
+from algorithms import SearchMachine, solution_costs
 from codeview import GAME_NAMES, CodeView, code_lines, explain, init_trace, step_trace
 from inputs import PuzzleInput, VacuumInput
 from problems import make_puzzle_problem, make_vacuum_problem
@@ -49,7 +49,7 @@ PATH_RECT = pygame.Rect(_RIGHT_X, _ROW3_Y, _RIGHT_W, 290)
 PAGE_H = INPUT_RECT.bottom + GAP
 
 GAMES = [("puzzle", "8-Puzzle"), ("vacuum", "Vacuum Robot")]
-ALGOS = [("BFS", "BFS"), ("DFS", "DFS")]
+ALGOS = [("BFS", "BFS"), ("DFS", "DFS"), ("UCS", "UCS")]
 
 STUDENT_NAME = "Mai Quốc Bảo"
 STUDENT_ID = "24110080"
@@ -183,7 +183,7 @@ class App:
         self.empty_list.reset_scroll()
         self.path_list.reset_scroll()
         self.code.set_code(code_lines(self.algo, self.game, init, goal), f"{self.algo} · {GAME_NAMES[self.game]}")
-        self.code.set_trace(init_trace(self.machine.found is not None), animate=True, per_line=CODE_LINE_TIME)
+        self.code.set_trace(init_trace(self.algo, self.machine.found is not None), animate=True, per_line=CODE_LINE_TIME)
         self._sync_board(snap)
 
     def display_node(self):
@@ -218,7 +218,7 @@ class App:
         self._sync_board()
         st, i = m.active_pos()
         if st is None:
-            self.code.set_trace(init_trace(m.found is not None), animate=False)
+            self.code.set_trace(init_trace(self.algo, m.found is not None), animate=False)
         else:
             self.code.set_trace(m.trace_of(st), animate=animate, per_line=CODE_LINE_TIME,
                                 start=from_line, end=i)
@@ -229,13 +229,20 @@ class App:
             self.printed_goal = m.found
             self.print_path()
 
+    @property
+    def is_ucs(self):
+        return self.algo == "UCS"
+
     def print_path(self):
         """In đường đi ra terminal giống output của notebook."""
         m = self.machine
-        out = [f"\n===== {self.algo} - {GAME_NAMES[self.game]}: path = {len(m.path_actions())} steps ====="]
+        total = f", total cost = {m.found.cost}" if self.is_ucs else ""
+        out = [f"\n===== {self.algo} - {GAME_NAMES[self.game]}: path = {len(m.path_actions())} steps{total} ====="]
         acts = [None] + m.path_actions()
+        costs = solution_costs(m.found)
         for i, st in enumerate(m.path_states()):
-            out.append(f"Step {i}:" + (f"  ({acts[i]})" if acts[i] else ""))
+            out.append(f"Step {i}:" + (f"  ({acts[i]})" if acts[i] else "")
+                       + (f"  g = {costs[i]}" if self.is_ucs else ""))
             if self.game == "puzzle":
                 out += ["[" + " ".join(map(str, row)) + "]" for row in st]
             else:
@@ -584,9 +591,10 @@ class App:
         self.dd_algo.draw(s)
 
         # chip mô tả cấu trúc dữ liệu
-        txt = "Queue · FIFO" if self.algo == "BFS" else "Stack · LIFO"
-        sub = "Duyệt theo chiều rộng" if self.algo == "BFS" else "Duyệt theo chiều sâu"
-        chip = pygame.Rect(W - GAP - 288, HEADER_H - 52, 288, 52)
+        txt, sub = {"BFS": ("Queue · FIFO", "Duyệt theo chiều rộng"),
+                    "DFS": ("Stack · LIFO", "Duyệt theo chiều sâu"),
+                    "UCS": ("Priority Queue", "Tìm kiếm chi phí đồng nhất")}[self.algo]
+        chip = pygame.Rect(W - GAP - 300, HEADER_H - 52, 300, 52)
         rrect(s, COL["panel"], chip, 14, 1, COL["border"])
         draw_text(s, f"{self.algo} — {sub}", (chip.x + 16, chip.y + 9), 14, COL["text"], True)
         draw_text(s, f"Frontier: {txt}  ·  check goal: " + ("khi sinh con" if self.algo == "BFS" else "khi lấy ra"),
@@ -613,11 +621,15 @@ class App:
             draw_text(s, "(robot ở đâu cũng được)", (gr.right + 10, gr.centery), 11, COL["muted"], False, "midleft")
 
         node = self.display_node()
+        act = node.action if node and node.action else "—"
+        if self.is_ucs and node:
+            act = (f"{act} (+{node.cost - node.parent.cost}) · g={node.cost}" if node.parent
+                   else f"— · g={node.cost}")
         rows = [
             ("Vòng lặp", str(m.iteration) + (" (đang chạy)" if m.sub else "")),
             ("Frontier", str(m.frontier_len)),
             ("Empty", str(len(m.explored))),
-            ("Hành động", (node.action if node and node.action else "—")),
+            ("Hành động", act),
         ]
         y = iy + 98
         for k, v in rows:
@@ -636,6 +648,8 @@ class App:
             text, color, icon = f"Phát lại {self.play_idx}/{len(self.play_states) - 1}", COL["accent"], "play"
         elif m.found is not None:
             text, color, icon = f"Tìm thấy goal · {len(m.path_actions())} bước", COL["green"], "check"
+            if self.is_ucs:
+                text = f"Tìm thấy goal · chi phí {m.found.cost}"
         elif m.exhausted:
             text, color, icon = "Không có lời giải", COL["orange"], "warn"
         elif m.cursor == 0 and m.sub == 0:
@@ -687,6 +701,9 @@ class App:
                 draw_text(s, "GOAL", pg.center, 11, COL["white"], True, "center")
             draw_text(s, f"Hành động: {node.action or '— (root)'}", (x, card.y + 28), 13, COL["muted"])
             draw_text(s, f"Độ sâu: {node.depth}", (x, card.y + 47), 13, COL["muted"])
+            if self.is_ucs:
+                step_c = f" (+{node.cost - node.parent.cost})" if node.parent else ""
+                draw_text(s, f"Chi phí g(n): {node.cost}{step_c}", (x, card.y + 66), 13, COL["orange"], True)
             st, i = m.active_pos()
             if child_goal:
                 msg = f"Con '{m.found.action}' là goal → hiện ở cuối Frontier (thẻ GOAL) → dừng."
@@ -717,10 +734,11 @@ class App:
         age = self.step_age
 
         # --- Frontier
-        is_bfs = self.algo == "BFS"
+        kind = {"BFS": "Queue · FIFO", "DFS": "Stack · LIFO", "UCS": "Priority Queue · g nhỏ nhất trước"}[self.algo]
+        head_tag = {"BFS": "HEAD", "DFS": "TOP", "UCS": "MIN"}[self.algo]
         goal_node = m.found if (m.found is not None and m.found is not m.current) else None
         draw_panel(s, FRONT_RECT, "Frontier", COL["orange"],
-                   subtitle="Queue · FIFO" if is_bfs else "Stack · LIFO",
+                   subtitle=kind,
                    badge=f"{m.frontier_len} node" + (" + goal" if goal_node else ""),
                    badge_color=COL["orange"])
 
@@ -737,8 +755,9 @@ class App:
             elif id(node) in new_ids:
                 border = mix(COL["green"], COL["border"], 0.5)
                 bw = 2
-            tag = ("HEAD" if is_bfs else "TOP") if idx == 0 else None
-            paint_card(surf, rect, self.game, node.state, gl, border, bw, a, tag, COL["orange"])
+            tag = head_tag if idx == 0 else None
+            paint_card(surf, rect, self.game, node.state, gl, border, bw, a, tag, COL["orange"],
+                       node.cost if self.is_ucs else None)
 
         n_front = m.frontier_len
 
@@ -761,7 +780,8 @@ class App:
                     a = int(70 + 185 * min(1, age / 0.35))
                 border = mix(COL["accent"], COL["border"], min(0.5, age / 1.6) if just else 0.5)
                 bw = 2
-            paint_card(surf, rect, self.game, state, gl, border, bw, a, "MỚI" if fresh else None, COL["accent"])
+            cost = m.enodes[len(m.enodes) - 1 - idx].cost if self.is_ucs else None
+            paint_card(surf, rect, self.game, state, gl, border, bw, a, "MỚI" if fresh else None, COL["accent"], cost)
 
         draw_panel(s, EMPTY_RECT, "Empty", COL["gray"], subtitle="đã thăm (explored)",
                    badge=f"{len(m.explored)} node", badge_color=COL["gray"])
@@ -773,7 +793,8 @@ class App:
         states = m.path_states()
         acts = m.path_actions()
         draw_panel(s, R, "Đường đi", COL["green"], subtitle="từ trạng thái đầu đến goal",
-                   badge=f"{len(acts)} bước" if m.found else None, badge_color=COL["green"])
+                   badge=(f"{len(acts)} bước" + (f" · chi phí {m.found.cost}" if self.is_ucs else ""))
+                   if m.found else None, badge_color=COL["green"])
         if m.found is None:
             msg = "Không có lời giải." if m.exhausted else "Chưa tìm thấy goal — đường đi sẽ hiện ở đây."
             draw_text(s, msg, (R.centerx, R.centery + 10), 14, COL["muted"], False, "center")
@@ -797,6 +818,7 @@ class App:
         draw_text(s, text, (lab.right + 8, y0), 13, COL["text"], True)
 
         gl = self.inp.goal_state() if self.game == "puzzle" else None
+        costs = solution_costs(m.found)
         last_i = len(states) - 1
         cols = self.path_list.cols
 
@@ -805,9 +827,13 @@ class App:
             is_last = idx == last_i
             border = COL["green"] if is_last else (COL["accent"] if idx == 0 else COL["border"])
             tag = "START" if idx == 0 else acts[idx - 1]
+            if self.is_ucs and idx:
+                tag += f" +{costs[idx] - costs[idx - 1]}"
             paint_card(surf, card, self.game, state, gl, border, 2 if (is_last or idx == 0) else 1, 255, tag,
                        COL["green"] if is_last else COL["accent"])
             label = f"Bước {idx}" + (" · GOAL" if is_last else "")
+            if self.is_ucs:
+                label = f"g={costs[idx]}" + (" · GOAL" if is_last else "")
             draw_text(surf, label, (card.centerx, card.bottom + 5), 11,
                       COL["green"] if is_last else COL["muted"], True, "midtop")
             if not is_last and (idx % cols) != cols - 1:
@@ -849,7 +875,7 @@ class Viewport:
 
 def main():
     pygame.init()
-    pygame.display.set_caption("Search Visualizer — BFS / DFS · Mai Quốc Bảo · 24110080")
+    pygame.display.set_caption("Search Visualizer — BFS / DFS / UCS · Mai Quốc Bảo · 24110080")
     info = pygame.display.Info()
     desk_h = info.current_h if info.current_h and info.current_h > 0 else DEFAULT_VIEW_H + 100
     win_h = int(clamp(desk_h - 110, 480, PAGE_H * UI_SCALE))

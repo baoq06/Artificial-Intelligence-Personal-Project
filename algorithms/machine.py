@@ -2,7 +2,7 @@
 
 Mỗi lần gọi next() thực hiện đúng 1 vòng lặp `while` của thuật toán và ghi lại một Step
 (chỉ lưu phần thay đổi) để prev() có thể hoàn tác rất nhanh, kể cả khi frontier có hàng chục nghìn phần tử.
-Phần riêng của từng thuật toán (cách lấy node ra, sinh con, kiểm tra goal) nằm trong bfs.py / dfs.py.
+Phần riêng của từng thuật toán (cách lấy node ra, sinh con, kiểm tra goal) nằm trong bfs.py / dfs.py / ucs.py.
 """
 import time
 from collections import Counter
@@ -11,8 +11,9 @@ from .core import Node, is_goal, solution, solution_actions
 from .registry import ALGORITHMS
 
 # tag dòng code -> thao tác lên frontier / explored khi chạy từng dòng
-_TAG_OP = {"pop": "pop", "explored_add": "add", "push_child": "push",
+_TAG_OP = {"pop": "pop", "explored_add": "add", "push_child": "push", "replace_child": "replace",
            "return_child": "found", "return_pop": "found"}
+_KID_OPS = ("push", "replace")      # các thao tác đưa 1 node con vào frontier
 
 
 class SearchMachine:
@@ -22,20 +23,21 @@ class SearchMachine:
     def __init__(self, problem, algo, tracer=None):
         self.problem = problem
         self.algo = algo                      # tên thuật toán, khóa trong ALGORITHMS
-        self.strategy = ALGORITHMS[algo](self)
         self.tracer = tracer                  # (algo, step, exhausted_after) -> [(tag, note)]
         self.sub = 0
         self.root = Node(problem.initial_state)
-        self.q = [self.root]                  # frontier; BFS dùng q[head:], DFS dùng như stack
+        self.q = [self.root]                  # frontier; BFS dùng q[head:], DFS như stack, UCS luôn sắp xếp theo g
         self.head = 0
         self.fcount = Counter({self.root.state: 1})
         self.explored = []                    # theo thứ tự thăm
+        self.enodes = []                      # node tương ứng với từng state trong explored (để biết chi phí g)
         self.eset = set()
+        self.strategy = ALGORITHMS[algo](self)
         self.history = []
         self.cursor = 0
         self.current = None
         self.found = None
-        if is_goal(problem, self.root.state):
+        if self.strategy.check_goal_at_init and is_goal(problem, self.root.state):
             self.current = self.root
             self.found = self.root
 
@@ -85,7 +87,7 @@ class SearchMachine:
         if st is None:
             return []
         ops = self.ops_of(st)
-        n = sum(1 for o in ops[:i + 1] if o == "push")
+        n = sum(1 for o in ops[:i + 1] if o in _KID_OPS)
         return st.kids[:n]
 
     def added_in_active(self):
@@ -195,7 +197,8 @@ class SearchMachine:
     # ---- nội bộ
     def _new_step(self):
         step = self.strategy.compute()
-        step.exhaust = step.goal is None and self.frontier_len - 1 + len(step.kids) == 0
+        net_kids = len(step.kids) - (sum(1 for o in step.olds if o is not None) if step.olds else 0)
+        step.exhaust = step.goal is None and self.frontier_len - 1 + net_kids == 0
         self.history.append(step)
         return step
 
@@ -216,42 +219,57 @@ class SearchMachine:
             if st.added:
                 if not undo:
                     self.explored.append(st.popped.state)
+                    self.enodes.append(st.popped)
                     self.eset.add(st.popped.state)
                 else:
                     self.explored.pop()
+                    self.enodes.pop()
                     self.eset.discard(st.popped.state)
-        elif op == "push":
-            if not undo:
-                k = st.kids[sum(1 for o in ops[:i] if o == "push")]
-                self.q.append(k)
-                self.fcount[k.state] += 1
-            else:
-                k = self.q.pop()
-                self.fcount[k.state] -= 1
+        elif op in _KID_OPS:
+            j = sum(1 for o in ops[:i] if o in _KID_OPS)
+            self._add_kid(st, j) if not undo else self._del_kid(st, j)
         elif op == "found":
             self.found = None if undo else st.goal
+
+    def _add_kid(self, st, j):
+        """Đưa node con thứ j vào frontier; nếu nó thay thế node cũ (UCS) thì bỏ node cũ trước."""
+        old = st.olds[j] if st.olds else None
+        if old is not None:
+            self.strategy.remove(old)
+            self.fcount[old.state] -= 1
+        k = st.kids[j]
+        self.strategy.push(k)
+        self.fcount[k.state] += 1
+
+    def _del_kid(self, st, j):
+        k = st.kids[j]
+        self.strategy.unpush(k)
+        self.fcount[k.state] -= 1
+        old = st.olds[j] if st.olds else None
+        if old is not None:
+            self.strategy.restore(old)
+            self.fcount[old.state] += 1
 
     def _apply(self, st):
         self.strategy.pop()
         self.fcount[st.popped.state] -= 1
         if st.added:
             self.explored.append(st.popped.state)
+            self.enodes.append(st.popped)
             self.eset.add(st.popped.state)
-        for k in st.kids:
-            self.q.append(k)
-            self.fcount[k.state] += 1
+        for j in range(len(st.kids)):
+            self._add_kid(st, j)
         self.current = st.popped
         self.found = st.goal
         self.cursor += 1
 
     def _undo(self, st):
         self.cursor -= 1
-        if st.kids:
-            for k in st.kids:
-                self.fcount[k.state] -= 1
-            del self.q[-len(st.kids):]
+        for j in reversed(range(len(st.kids))):
+            self._del_kid(st, j)
         if st.added:
             self.explored.pop()
+            self.enodes.pop()
             self.eset.discard(st.popped.state)
         self.strategy.unpop(st.popped)
         self.fcount[st.popped.state] += 1

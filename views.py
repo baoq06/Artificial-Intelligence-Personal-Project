@@ -52,12 +52,24 @@ def draw_vacuum_state(surf, rect, state):
             pygame.draw.circle(surf, COL["green"], (c[0], c[1] - 1), 2)
 
 
-def paint_card(surf, rect, game, state, goal=None, border=None, border_w=1, alpha=255, tag=None, tag_color=None):
+def _cost_pill(surf, rect, cost):
+    label = f"g={cost}"
+    c = pygame.Rect(0, 0, text_width(label, 10, True) + 10, 15)
+    c.midbottom = (rect.centerx, rect.bottom + 6)
+    rrect(surf, (44, 52, 84), c, 7, 1, COL["border"])
+    draw_text(surf, label, c.center, 10, COL["text"], True, "center")
+
+
+def paint_card(surf, rect, game, state, goal=None, border=None, border_w=1, alpha=255, tag=None, tag_color=None,
+               cost=None):
+    """cost: chi phí g(n) (UCS) - vẽ thành nhãn nhỏ ở cạnh dưới thẻ."""
     if alpha < 255:
         tmp = pygame.Surface(rect.size, pygame.SRCALPHA)
         paint_card(tmp, pygame.Rect(0, 0, rect.w, rect.h), game, state, goal, border, border_w, 255, tag, tag_color)
         tmp.set_alpha(int(alpha))
         surf.blit(tmp, rect.topleft)
+        if cost is not None:          # nhãn chi phí nằm ngoài thẻ nên vẽ riêng (không bị cắt khi mờ)
+            _cost_pill(surf, rect, cost)
         return
     rrect(surf, COL["panel2"], rect, 9, border_w, border or COL["border"])
     inner = rect.inflate(-8, -8)
@@ -72,6 +84,8 @@ def paint_card(surf, rect, game, state, goal=None, border=None, border_w=1, alph
         t.midtop = (rect.centerx, rect.y - 7)
         rrect(surf, tc, t, 7)
         draw_text(surf, tag, t.center, 10, COL["white"], True, "center")
+    if cost is not None:
+        _cost_pill(surf, rect, cost)
 
 
 # ------------------------------------------------------------------ danh sách thẻ cuộn
