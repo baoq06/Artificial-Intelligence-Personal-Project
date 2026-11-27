@@ -1,7 +1,13 @@
-"""Định nghĩa 2 bài toán: 8-puzzle và Vacuum robot (lấy từ notebook), kèm chi phí hành động cho UCS."""
+"""Khởi tạo các bài toán cho app: 8-puzzle và Vacuum robot.
+
+Problem, actions, result và step_cost lấy từ ucs.py (notebook Buoi6) - bản đầy đủ nhất của 3 notebook
+(Problem có thêm step_cost; actions / result giống hệt Buoi4, Buoi5). File này chỉ thêm phần riêng của app:
+trạng thái mặc định, hàm tạo Problem, xáo trộn ngẫu nhiên và kiểm tra đầu vào có giải được không.
+"""
 import random
 
-from algorithms import Problem
+from ucs import (Problem, actions_puzzle, actions_vacuum, result_puzzle, result_vacuum, step_cost_puzzle,
+                 step_cost_vacuum)
 
 PUZZLE_INIT = ((1, 2, 3), (4, 0, 6), (7, 5, 8))
 PUZZLE_GOAL = ((1, 2, 3), (4, 5, 6), (7, 8, 0))
@@ -10,45 +16,8 @@ VACUUM_GOAL_ROOMS = ("Clean", "Clean")
 
 
 # ------------------------------------------------------------------ 8-puzzle
-def actions_puzzle(state):
-    r, c = 0, 0
-    for i in range(3):
-        for j in range(3):
-            if state[i][j] == 0:
-                r, c = i, j
-    moves = []
-    if r > 0: moves.append("Up")
-    if r < 2: moves.append("Down")
-    if c > 0: moves.append("Left")
-    if c < 2: moves.append("Right")
-    return moves
-
-
-def result_puzzle(state, action):
-    if action == "Up":
-        dr, dc = -1, 0
-    elif action == "Down":
-        dr, dc = 1, 0
-    elif action == "Left":
-        dr, dc = 0, -1
-    else:
-        dr, dc = 0, 1
-    r, c = 0, 0
-    for i in range(3):
-        for j in range(3):
-            if state[i][j] == 0:
-                r, c = i, j
-    board = [list(row) for row in state]
-    board[r][c], board[r + dr][c + dc] = board[r + dr][c + dc], board[r][c]
-    return tuple(tuple(row) for row in board)
-
-
-def step_cost_puzzle(state, action):
-    """Đi lên / xuống tốn 1, sang trái / phải tốn 2."""
-    return 1 if action in ("Up", "Down") else 2
-
-
 def make_puzzle_problem(initial, goal):
+    """Giống notebook: Problem(initial, goal, actions_puzzle, result_puzzle, step_cost_puzzle)."""
     return Problem(initial, goal, actions_puzzle, result_puzzle, step_cost_puzzle)
 
 
@@ -75,36 +44,8 @@ def random_puzzle(goal, moves=14):
 
 
 # ------------------------------------------------------------------ Vacuum robot
-def actions_vacuum(state):
-    loc, _ = state
-    moves = ["Suck"]
-    if loc == "A":
-        moves.append("Right")
-    elif loc == "B":
-        moves.append("Left")
-    return moves
-
-
-def result_vacuum(state, action):
-    loc, (r0, r1) = state
-    if action == "Left":
-        return ("A", (r0, r1))
-    elif action == "Right":
-        return ("B", (r0, r1))
-    elif action == "Suck":
-        if loc == "A":
-            return ("A", ("Clean", r1))
-        else:
-            return ("B", (r0, "Clean"))
-    return state
-
-
-def step_cost_vacuum(state, action):
-    """Chi phí điển hình của Vacuum world (Russell & Norvig): mỗi hành động (Suck / Left / Right) tốn 1."""
-    return 1
-
-
 def make_vacuum_problem(initial, goal_rooms):
+    """Giống notebook: goal = lambda s: s[1] == ("Clean", "Clean")."""
     goal = lambda s: s[1] == goal_rooms
     return Problem(initial, goal, actions_vacuum, result_vacuum, step_cost_vacuum)
 

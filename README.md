@@ -31,7 +31,7 @@
 
 - **Trang cuộn được**: nếu màn hình không đủ cao, nội dung kéo dài xuống dưới và có thanh cuộn bên phải (kéo thanh cuộn, lăn chuột, hoặc dùng phím ↑ ↓ / PgUp PgDn). Nút *Đường đi* trên bàn chơi cuộn thẳng tới bảng Đường đi.
 
-- **Cửa sổ co giãn được**: kéo giãn cửa sổ thì giao diện tự co/giãn theo chiều rộng. Muốn cửa sổ mặc định nhỏ hơn thì giảm hằng số `UI_SCALE` trong `main.py` (ví dụ `0.85`).
+- **Cửa sổ co giãn được**: kéo giãn cửa sổ thì giao diện tự co/giãn theo chiều rộng. Muốn cửa sổ mặc định nhỏ hơn thì giảm hằng số `UI_SCALE` trong `visualizer.py` (ví dụ `0.85`).
 
 ### Bố cục
 
@@ -61,7 +61,7 @@ Yêu cầu: Python 3.9+ (đã thử với 3.11) và `pygame`.
 
 ```bash
 pip install -r requirements.txt
-python main.py
+python visualizer.py
 ```
 
 ### Phím tắt
@@ -84,13 +84,13 @@ Logic bám theo hai notebook bài tập (`Problem`, `Node`, `child_node`, `solut
 |---|---|---|---|
 | Frontier | Queue (FIFO) | Stack (LIFO) | Priority Queue theo g(n) |
 | Kiểm tra goal | Khi **sinh node con** | Khi **lấy node ra** | Khi **lấy node ra** |
-| Bỏ qua node con | Đã ở Empty hoặc đã nằm trong Frontier | Chỉ cần đã ở Empty | Đã ở Empty; nếu đã trong Frontier mà đường mới **rẻ hơn** thì thay thế |
+| Bỏ qua node con | Đã ở Empty hoặc đã nằm trong Frontier | Chỉ cần đã ở Empty | Đã ở Empty, hoặc không rẻ hơn `best_cost` đã biết (đường rẻ hơn được `push` thêm; bản cũ khi lấy ra gặp `if node.state in explored: continue`) |
 | Đường đi | Ít bước nhất | Có thể rất dài, không tối ưu | **Chi phí thấp nhất** |
 
 ### Chi phí hành động (dùng cho UCS)
 
-- **8-Puzzle**: `Up` / `Down` tốn **1**, `Left` / `Right` tốn **2** (`step_cost_puzzle` trong `problems.py`).
-- **Vacuum Robot**: mọi hành động (`Suck`, `Left`, `Right`) tốn **1** — chi phí chuẩn của bài toán (`step_cost_vacuum`). Muốn đổi chỉ cần sửa hàm này.
+- **8-Puzzle**: `Up` / `Down` tốn **1**, `Left` / `Right` tốn **2** (`step_cost_puzzle`, notebook Buoi6, trong `ucs.py`).
+- **Vacuum Robot**: `Suck` tốn **1**, `Left` / `Right` tốn **2** (`step_cost_vacuum`, notebook Buoi6, trong `ucs.py`).
 - Thẻ trong Frontier / Empty / Đường đi hiển thị `g=…` (tổng chi phí từ trạng thái đầu); bảng Node và Đường đi hiện chi phí từng bước và tổng chi phí.
 
 Ví dụ với 8-Puzzle `((1,2,3),(4,0,6),(7,5,8))` → `((1,2,3),(4,5,6),(7,8,0))`: BFS tìm ra đường đi 2 nước (`Down`, `Right`) sau 3 vòng lặp, còn DFS đi qua hàng trăm nước vì đào sâu theo một nhánh.
@@ -100,30 +100,23 @@ Ví dụ với 8-Puzzle `((1,2,3),(4,0,6),(7,5,8))` → `((1,2,3),(4,5,6),(7,8,0
 ## Cấu trúc dự án
 
 ```
-├── main.py         # vòng lặp pygame, bố cục, xử lý sự kiện
-├── algorithms/     # thuật toán tìm kiếm, mỗi thuật toán một file
-│   ├── core.py     #   Problem, Node, Step, hàm tiện ích
-│   ├── base.py     #   lớp cơ sở SearchAlgorithm
-│   ├── bfs.py      #   BFS (Queue, kiểm tra goal khi sinh con)
-│   ├── dfs.py      #   DFS (Stack, kiểm tra goal khi lấy ra)
-│   ├── ucs.py      #   UCS (Priority Queue theo g, thay node khi tìm được đường rẻ hơn)
-│   ├── registry.py #   tên thuật toán -> lớp
-│   └── machine.py  #   SearchMachine: chạy / lùi từng dòng, từng vòng lặp
-├── problems.py     # định nghĩa 8-Puzzle và Vacuum Robot
-├── inputs.py       # bảng tùy chỉnh đầu vào
-├── codeview.py     # bảng Code: nội dung code theo trò, tô màu cú pháp, highlight dòng đang chạy
-├── views.py        # vẽ bàn 8-puzzle, phòng Vacuum, thẻ trạng thái, danh sách cuộn
-├── ui.py           # theme, font, widget (Button, Dropdown, Slider, Panel)
+├── visualizer.py   # giao diện app (chạy file này): theme, widget, bàn chơi, bảng nhập, bảng Code, bố cục, vòng lặp chính
+├── bfs.py          # notebook Buoi4 chép đủ mọi cell: Problem, Node, Queue, enqueue, dequeue, BFS(), ...  (chạy thử: python bfs.py)
+├── dfs.py          # notebook Buoi5 chép đủ mọi cell: Problem, Node, Stack, push, pop, DFS(), ...        (chạy thử: python dfs.py)
+├── ucs.py          # notebook Buoi6 chép đủ mọi cell: PriorityQueue (heapq), push, pop, UCS(), step_cost  (chạy thử: python ucs.py)
+├── stepper.py      # BFS / DFS / UCS chạy từng bước (BFSStepper, DFSStepper, UCSStepper, SearchMachine) + highlight dòng code
+├── scaling.py      # vẽ sắc nét ở độ phân giải thật của cửa sổ (HiDPI): Surface + hàm vẽ theo toạ độ logic, Viewport
+├── problems.py     # khởi tạo bài toán cho app: trạng thái mặc định, tạo Problem, xáo trộn, kiểm tra giải được
 ├── ute_logo.png    # logo trường
 └── screenshots/    # ảnh dùng trong README
 ```
 
 ## Thêm trò chơi hoặc thuật toán mới
 
-Ở đầu `main.py` có hai danh sách `GAMES` và `ALGOS`; thêm một dòng vào đây là dropdown có thêm mục. Để mục mới chạy được còn cần:
+Trong phần App của `visualizer.py` có hai danh sách `GAMES` và `ALGOS`; thêm một dòng vào đây là dropdown có thêm mục. Để mục mới chạy được còn cần:
 
-- **Thuật toán mới**: tạo file mới trong `algorithms/` (lớp con của `SearchAlgorithm`, xem `bfs.py` / `dfs.py` / `ucs.py`), đăng ký trong `algorithms/registry.py`, và code hiển thị + cách map từng bước sang dòng code trong `codeview.py`. Dòng code nào làm thay đổi Frontier/Empty thì khai báo trong `_TAG_OP` (`algorithms/machine.py`) để Next/Prev theo dòng cập nhật đúng các bảng.
-- **Trò chơi mới**: thêm `Problem` (`problems.py`), cách vẽ trạng thái (`views.py`) và bảng nhập đầu vào (`inputs.py`).
+- **Thuật toán mới**: chép notebook vào một file mới (như `bfs.py` / `dfs.py` / `ucs.py`), rồi trong `stepper.py` thêm một lớp con của `SearchAlgorithm` (xem `BFSStepper` / `DFSStepper` / `UCSStepper`), đăng ký trong `ALGORITHMS`, thêm code hiển thị (`code_lines`) và cách map từng bước sang dòng code (`step_trace`). Dòng code nào làm thay đổi Frontier/Empty thì khai báo trong `_TAG_OP` để Next/Prev theo dòng cập nhật đúng các bảng.
+- **Trò chơi mới**: thêm `actions` / `result` / `step_cost` và hàm tạo `Problem` (`problems.py`), cách vẽ trạng thái và bảng nhập đầu vào (`visualizer.py`).
 
 ## Lưu ý
 
